@@ -127,13 +127,11 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 				toRead -= count;
 			}
 
+			clearTextLength = rawLength;
 			if (cryptoTransform != null)
 			{
-				clearTextLength = cryptoTransform.TransformBlock(rawData, 0, rawLength, clearText, 0);
-			}
-			else
-			{
-				clearTextLength = rawLength;
+				var size = CalculateDecryptionSize(rawLength);
+				cryptoTransform.TransformBlock(rawData, 0, size, clearText, 0);
 			}
 
 			available = clearTextLength;
@@ -290,7 +288,9 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 					clearTextLength = rawLength;
 					if (available > 0)
 					{
-						cryptoTransform.TransformBlock(rawData, rawLength - available, available, clearText, rawLength - available);
+						var size = CalculateDecryptionSize(available);
+
+						cryptoTransform.TransformBlock(rawData, rawLength - available, size, clearText, rawLength - available);
 					}
 				}
 				else
@@ -300,6 +300,20 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 				}
 			}
 		}
+
+		private int CalculateDecryptionSize(int availableBufferSize)
+		{
+			int size = DecryptSize ?? availableBufferSize;
+			size = Math.Min(size, availableBufferSize);
+			if (DecryptSize.HasValue)
+			{
+				DecryptSize -= size;
+			}
+
+			return size;
+		}
+
+		public int? DecryptSize { get; set; }
 
 		#region Instance Fields
 

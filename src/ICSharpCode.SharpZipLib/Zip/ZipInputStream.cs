@@ -75,6 +75,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 		private long size;
 		private int flags;
 		private string password;
+		private ZipAESTransform cryptoTransform;
 
 		#endregion Instance Fields
 
@@ -147,7 +148,8 @@ namespace ICSharpCode.SharpZipLib.Zip
 			var entryCompressionMethod = entry.CompressionMethodForHeader;
 
 			return entryCompressionMethod == CompressionMethod.Deflated ||
-				   entryCompressionMethod == CompressionMethod.Stored;
+				   entryCompressionMethod == CompressionMethod.Stored ||
+				   entryCompressionMethod == CompressionMethod.WinZipAES;
 		}
 
 		/// <summary>
@@ -353,17 +355,15 @@ namespace ICSharpCode.SharpZipLib.Zip
 																			// Final block done. Check Auth code.
 				}
 
-				/*
-				byte[] calcAuthCode = (this.cryptoTransform as ZipAESTransform).GetAuthCode();
+				byte[] calcAuthCode = this.cryptoTransform.GetAuthCode();
 				for (int i = 0; i < ZipConstants.AESAuthCodeLength; i++)
 				{
 					if (calcAuthCode[i] != authBytes[i])
 					{
-						// throw new Exception("AES Authentication Code does not match. This is a super-CRC check on the data in the file after compression and encryption. \r\n"
-						// 	+ "The file may be damaged.");
+						throw new Exception("AES Authentication Code does not match. This is a super-CRC check on the data in the file after compression and encryption. \r\n"
+						 	+ "The file may be damaged or tampered.");
 					}
 				}
-				*/
 
 				// Dispose the transform?
 			}
@@ -611,7 +611,9 @@ namespace ICSharpCode.SharpZipLib.Zip
 					// The AES data has saltLen+AESPasswordVerifyLength bytes as a header, and AESAuthCodeLength bytes
 					// as a footer.
 					csize -= (saltLen + ZipConstants.AESPasswordVerifyLength + ZipConstants.AESAuthCodeLength);
+					inputBuffer.DecryptSize = (int)csize;
 					inputBuffer.CryptoTransform = decryptor;
+					this.cryptoTransform = decryptor;
 				}
 			}
 			else
