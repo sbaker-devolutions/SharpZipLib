@@ -1,8 +1,6 @@
-﻿using ICSharpCode.SharpZipLib.Core;
-using ICSharpCode.SharpZipLib.Zip;
+﻿using ICSharpCode.SharpZipLib.Zip;
 using NUnit.Framework;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using ICSharpCode.SharpZipLib.Tests.TestSupport;
@@ -42,6 +40,42 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			CreateZipWithEncryptedEntries("foo", 0, compressionMethod);
 		}
 
+		/// <summary>
+		/// Test Known zero length encrypted entries with ZipOutputStream.
+		/// These are entries where the entry size is set to 0 ahead of time, so that PutNextEntry will fill in the header and there will be no patching.
+		/// Test with Zip64 on and off, as the logic is different for the two.
+		/// </summary>
+		[Test]
+		public void ZipOutputStreamEncryptEmptyEntries(
+			[Values] UseZip64 useZip64,
+			[Values(0, 128, 256)] int keySize,
+			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)] CompressionMethod compressionMethod)
+		{
+			using (var ms = new MemoryStream())
+			{
+				using (var zipOutputStream = new ZipOutputStream(ms))
+				{
+					zipOutputStream.IsStreamOwner = false;
+					zipOutputStream.Password = "password";
+					zipOutputStream.UseZip64 = useZip64;
+
+					ZipEntry zipEntry = new ZipEntry("emptyEntry")
+					{
+						AESKeySize = keySize,
+						CompressionMethod = compressionMethod,
+						CompressedSize = 0,
+						Crc = 0,
+						Size = 0,
+					};
+
+					zipOutputStream.PutNextEntry(zipEntry);
+					zipOutputStream.CloseEntry();
+				}
+
+				SevenZipHelper.VerifyZipWith7Zip(ms, "password");
+			}
+		}
+
 		[Test]
 		[Category("Encryption")]
 		[Category("Zip")]
@@ -69,6 +103,8 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 						Assert.AreEqual(DummyDataString, content, "Decompressed content does not match input data");
 					}
 				}
+
+				Assert.That(zipFile.TestArchive(false), Is.True, "Encrypted archive should pass validation.");
 			}
 		}
 
@@ -188,7 +224,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		[Test]
 		[Category("Encryption")]
 		[Category("Zip")]
-		public void ZipFileStoreAesPartialRead()
+		public void ZipFileStoreAesPartialRead([Values(1, 7, 17)] int readSize)
 		{
 			string password = "password";
 
@@ -217,16 +253,16 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 					{
 						using (var zis = zipFile.GetInputStream(entry))
 						{
-							byte[] buffer = new byte[1];
+							byte[] buffer = new byte[readSize];
 
 							while (true)
 							{
-								int b = zis.ReadByte();
+								int read = zis.Read(buffer, 0, readSize);
 
-								if (b == -1)
+								if (read == 0)
 									break;
 
-								ms.WriteByte((byte)b);
+								ms.Write(buffer, 0, read);
 							}
 						}
 
@@ -315,7 +351,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 				}
 
 				// As an extra test, verify the file with 7-zip
-				VerifyZipWith7Zip(memoryStream, password);
+				SevenZipHelper.VerifyZipWith7Zip(memoryStream, password);
 			}
 		}
 
@@ -399,55 +435,76 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 				}
 
 				// As an extra test, verify the file with 7-zip
-				VerifyZipWith7Zip(memoryStream, password);
+				SevenZipHelper.VerifyZipWith7Zip(memoryStream, password);
 			}
 		}
 
-		private static readonly string[] possible7zPaths = new[] {
-			// Check in PATH
-			"7z", "7za",
+		// This is a zip file with one AES encrypted entry, whose password in an empty string.
+		const string TestFileWithEmptyPassword = @"UEsDBDMACQBjACaj0FAyKbop//////////8EAB8AdGVzdAEAEAA4AAAA
+			AAAAAFIAAAAAAAAAAZkHAAIAQUUDCABADvo3YqmCtIE+lhw26kjbqkGsLEOk6bVA+FnSpVD4yGP4Mr66Hs14aTtsPUaANX2
+            Z6qZczEmwoaNQpNBnKl7p9YOG8GSHDfTCUU/AZvT4yGFhUEsHCDIpuilSAAAAAAAAADgAAAAAAAAAUEsBAjMAMwAJAGMAJq
+            PQUDIpuin//////////wQAHwAAAAAAAAAAAAAAAAAAAHRlc3QBABAAOAAAAAAAAABSAAAAAAAAAAGZBwACAEFFAwgAUEsFBgAAAAABAAEAUQAAAKsAAAAAAA==";
 
-			// Check in default install location
-			Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip", "7z.exe"),
-			Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "7-Zip", "7z.exe"),
-		};
-
-		public static bool TryGet7zBinPath(out string path7z)
+		/// <summary>
+		/// Test reading an AES encrypted entry whose password is an empty string.
+		/// </summary>
+		/// <remarks>
+		/// Test added for https://github.com/icsharpcode/SharpZipLib/issues/471.
+		/// </remarks>
+		[Test]
+		[Category("Zip")]
+		public void ZipFileAESReadWithEmptyPassword()
 		{
-			var runTimeLimit = TimeSpan.FromSeconds(3);
+			var fileBytes = Convert.FromBase64String(TestFileWithEmptyPassword);
 
-			foreach (var testPath in possible7zPaths)
+			using (var ms = new MemoryStream(fileBytes))
+			using (var zipFile = new ZipFile(ms, leaveOpen: true))
 			{
-				try
-				{
-					var p = Process.Start(new ProcessStartInfo(testPath, "i")
-					{
-						RedirectStandardOutput = true
-					});
-					while (!p.StandardOutput.EndOfStream && (DateTime.Now - p.StartTime) < runTimeLimit)
-					{
-						p.StandardOutput.DiscardBufferedData();
-					}
-					if (!p.HasExited)
-					{
-						p.Close();
-						Assert.Warn($"Timed out checking for 7z binary in \"{testPath}\"!");
-						continue;
-					}
+				zipFile.Password = string.Empty;
 
-					if (p.ExitCode == 0)
-					{
-						path7z = testPath;
-						return true;
-					}
-				}
-				catch (Exception)
+				var entry = zipFile.FindEntry("test", true);
+
+				using (var inputStream = zipFile.GetInputStream(entry))
+				using (var sr = new StreamReader(inputStream, Encoding.UTF8))
 				{
-					continue;
+					var content = sr.ReadToEnd();
+					Assert.That(content, Is.EqualTo("Lorem ipsum dolor sit amet, consectetur adipiscing elit."), "Decompressed content does not match expected data");
 				}
 			}
-			path7z = null;
-			return false;
+		}
+
+		/// <summary>
+		/// ZipInputStream can't decrypt AES encrypted entries, but it should report that to the caller
+		/// rather than just failing.
+		/// </summary>
+		[Test]
+		[Category("Zip")]
+		public void ZipinputStreamShouldGracefullyFailWithAESStreams()
+		{
+			string password = "password";
+
+			using (var memoryStream = new MemoryStream())
+			{
+				// Try to create a zip stream
+				WriteEncryptedZipToStream(memoryStream, password, 256);
+
+				// reset
+				memoryStream.Seek(0, SeekOrigin.Begin);
+
+				// Try to read
+				using (var inputStream = new ZipInputStream(memoryStream))
+				{
+					inputStream.Password = password;
+					var entry = inputStream.GetNextEntry();
+					Assert.That(entry.AESKeySize, Is.EqualTo(256), "Test entry should be AES256 encrypted.");
+
+					// CanDecompressEntry should be false.
+					Assert.That(inputStream.CanDecompressEntry, Is.False, "CanDecompressEntry should be false for AES encrypted entries");
+
+					// Should throw on read.
+					Assert.Throws<ZipException>(() => inputStream.ReadByte());
+				}
+			}
 		}
 
 		public void WriteEncryptedZipToStream(Stream stream, string password, int keySize, CompressionMethod compressionMethod = CompressionMethod.Deflated)
@@ -503,50 +560,9 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			using (var ms = new MemoryStream())
 			{
 				WriteEncryptedZipToStream(ms, password, keySize, compressionMethod);
-				VerifyZipWith7Zip(ms, password);
+				SevenZipHelper.VerifyZipWith7Zip(ms, password);
 			}
 		}
-
-		/// <summary>
-		/// Helper function to verify the provided zip stream with 7Zip.
-		/// </summary>
-		/// <param name="zipStream">A stream containing the zip archive to test.</param>
-		/// <param name="password">The password for the archive.</param>
-		private void VerifyZipWith7Zip(Stream zipStream, string password)
-		{
-			if (TryGet7zBinPath(out string path7z))
-			{
-				Console.WriteLine($"Using 7z path: \"{path7z}\"");
-
-				var fileName = Path.GetTempFileName();
-
-				try
-				{
-					using (var fs = File.OpenWrite(fileName))
-					{
-						zipStream.Seek(0, SeekOrigin.Begin);
-						zipStream.CopyTo(fs);
-					}
-
-					var p = Process.Start(path7z, $"t -p{password} \"{fileName}\"");
-					if (!p.WaitForExit(2000))
-					{
-						Assert.Warn("Timed out verifying zip file!");
-					}
-
-					Assert.AreEqual(0, p.ExitCode, "Archive verification failed");
-				}
-				finally
-				{
-					File.Delete(fileName);
-				}
-			}
-			else
-			{
-				Assert.Warn("Skipping file verification since 7za is not in path");
-			}
-		}
-
 
 		private const string DummyDataString = @"Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 Fusce bibendum diam ac nunc rutrum ornare. Maecenas blandit elit ligula, eget suscipit lectus rutrum eu.

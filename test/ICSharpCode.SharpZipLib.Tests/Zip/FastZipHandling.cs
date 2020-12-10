@@ -93,6 +93,45 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			Assert.IsTrue(Directory.Exists(targetDir), "Empty directory should be created");
 		}
 
+		/// <summary>
+		/// Test that FastZip can create empty directory entries in archives.
+		/// </summary>
+		[TestCase(null)]
+		[TestCase("password")]
+		[Category("Zip")]
+		[Category("CreatesTempFile")]
+		public void CreateEmptyDirectories(string password)
+		{
+			using (var tempFilePath = new Utils.TempDir())
+			{
+				string name = Path.Combine(tempFilePath.Fullpath, "x.zip");
+
+				// Create empty test folders (The folder that we'll zip, and the test sub folder).
+				string archiveRootDir = Path.Combine(tempFilePath.Fullpath, ZipTempDir);
+				string targetDir = Path.Combine(archiveRootDir, "floyd");
+				Directory.CreateDirectory(targetDir);
+
+				// Create the archive with FastZip
+				var fastZip = new FastZip
+				{
+					CreateEmptyDirectories = true,
+					Password = password,
+				};
+				fastZip.CreateZip(name, archiveRootDir, true, null);
+
+				// Test that the archive contains the empty folder entry
+				using (var zipFile = new ZipFile(name))
+				{
+					Assert.That(zipFile.Count, Is.EqualTo(1), "Should only be one entry in the file");
+
+					var folderEntry = zipFile.GetEntry("floyd/");
+					Assert.That(folderEntry.IsDirectory, Is.True, "The entry must be a folder");
+
+					Assert.IsTrue(zipFile.TestArchive(true));
+				}
+			}
+		}
+
 		[Test]
 		[Category("Zip")]
 		[Category("CreatesTempFile")]
@@ -120,8 +159,11 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		}
 
 		[Test]
+		[TestCase(ZipEncryptionMethod.ZipCrypto)]
+		[TestCase(ZipEncryptionMethod.AES128)]
+		[TestCase(ZipEncryptionMethod.AES256)]
 		[Category("Zip")]
-		public void Encryption()
+		public void Encryption(ZipEncryptionMethod encryptionMethod)
 		{
 			const string tempName1 = "a.dat";
 
@@ -135,8 +177,11 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 
 			try
 			{
-				var fastZip = new FastZip();
-				fastZip.Password = "Ahoy";
+				var fastZip = new FastZip
+				{
+					Password = "Ahoy",
+					EntryEncryptionMethod = encryptionMethod
+				};
 
 				fastZip.CreateZip(target, tempFilePath, false, @"a\.dat", null);
 
@@ -150,6 +195,21 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 					Assert.AreEqual(1, entry.Size);
 					Assert.IsTrue(zf.TestArchive(true));
 					Assert.IsTrue(entry.IsCrypted);
+
+					switch (encryptionMethod)
+					{
+						case ZipEncryptionMethod.ZipCrypto:
+							Assert.That(entry.AESKeySize, Is.Zero, "AES key size should be 0 for ZipCrypto encrypted entries");
+							break;
+
+						case ZipEncryptionMethod.AES128:
+							Assert.That(entry.AESKeySize, Is.EqualTo(128), "AES key size should be 128 for AES128 encrypted entries");
+							break;
+
+						case ZipEncryptionMethod.AES256:
+							Assert.That(entry.AESKeySize, Is.EqualTo(256), "AES key size should be 256 for AES256 encrypted entries");
+							break;
+					}
 				}
 			}
 			finally
@@ -199,7 +259,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 					nameCount++;
 				}
 
-				zippy.CreateZip(tempZip.Filename, tempDir.Fullpath, true, null, null);
+				zippy.CreateZip(tempZip.Filename, tempDir.Fullpath, true, null);
 
 				using (ZipFile z = new ZipFile(tempZip.Filename))
 				{
@@ -528,6 +588,103 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 
 			// test folder should not have been created on error
 			Assert.That(Directory.Exists(tempFolderPath), Is.False, "Temp folder path should still not exist");
+		}
+
+		/// <summary>
+		/// #426 - set the modified date for created directory entries if the RestoreDateTimeOnExtract option is enabled
+		/// </summary>
+		[Test]
+		[Category("Zip")]
+		[Category("CreatesTempFile")]
+		public void SetDirectoryModifiedDate()
+		{
+			string tempFilePath = GetTempFilePath();
+			Assert.IsNotNull(tempFilePath, "No permission to execute this test?");
+
+			string zipName = Path.Combine(tempFilePath, $"{nameof(SetDirectoryModifiedDate)}.zip");
+
+			EnsureTestDirectoryIsEmpty(tempFilePath);
+
+			var modifiedTime = new DateTime(2001, 1, 2);
+			string targetDir = Path.Combine(tempFilePath, ZipTempDir, nameof(SetDirectoryModifiedDate));
+			using (FileStream fs = File.Create(zipName))
+			{
+				using (ZipOutputStream zOut = new ZipOutputStream(fs))
+				{
+					// Add an empty directory entry, with a specified time field
+					var entry = new ZipEntry("emptyFolder/")
+					{
+						DateTime = modifiedTime
+					};
+					zOut.PutNextEntry(entry);
+				}
+			}
+
+			try
+			{
+				// extract the zip
+				var fastZip = new FastZip
+				{
+					CreateEmptyDirectories = true,
+					RestoreDateTimeOnExtract = true
+				};
+				fastZip.ExtractZip(zipName, targetDir, "zz");
+
+				File.Delete(zipName);
+
+				// Check that the empty sub folder exists and has the expected modlfied date
+				string emptyTargetDir = Path.Combine(targetDir, "emptyFolder");
+
+				Assert.That(Directory.Exists(emptyTargetDir), Is.True, "Empty directory should be created");
+
+				var extractedFolderTime = Directory.GetLastWriteTime(emptyTargetDir);
+				Assert.That(extractedFolderTime, Is.EqualTo(modifiedTime));
+			}
+			finally
+			{
+				// Tidy up
+				Directory.Delete(targetDir, true);
+			}
+		}
+
+		/// <summary>
+		/// Test for https://github.com/icsharpcode/SharpZipLib/issues/78
+		/// </summary>
+		/// <param name="leaveOpen">if true, the stream given to CreateZip should be left open, if false it should be disposed.</param>
+		[TestCase(true)]
+		[TestCase(false)]
+		[Category("Zip")]
+		[Category("CreatesTempFile")]
+		public void CreateZipShouldLeaveOutputStreamOpenIfRequested(bool leaveOpen)
+		{
+			const string tempFileName = "a(2).dat";
+
+			using (var tempFolder = new Utils.TempDir())
+			{
+				// Create test input file
+				string addFile = Path.Combine(tempFolder.Fullpath, tempFileName);
+				MakeTempFile(addFile, 16);
+
+				// Create the zip with fast zip
+				var target = new TrackedMemoryStream();
+				var fastZip = new FastZip();
+
+     			fastZip.CreateZip(target, tempFolder.Fullpath, false, @"a\(2\)\.dat", null, leaveOpen: leaveOpen);
+
+				// Check that the output stream was disposed (or not) as expected
+				Assert.That(target.IsDisposed, Is.Not.EqualTo(leaveOpen), "IsDisposed should be the opposite of leaveOpen");
+
+				// Check that the file contents are correct in both cases
+				var archive = new MemoryStream(target.ToArray());
+				using (ZipFile zf = new ZipFile(archive))
+				{
+					Assert.AreEqual(1, zf.Count);
+					ZipEntry entry = zf[0];
+					Assert.AreEqual(tempFileName, entry.Name);
+					Assert.AreEqual(16, entry.Size);
+					Assert.IsTrue(zf.TestArchive(true));
+				}
+			}
 		}
 	}
 }
