@@ -148,7 +148,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 
 					for (int i = 0; i < 3; i++)
 					{
-						var hmm = zis.GetNextEntry();
+						zis.GetNextEntry();
 
 						using (var sr = new StreamReader(zis, Encoding.UTF8, leaveOpen: true, detectEncodingFromByteOrderMarks: true, bufferSize: 1024))
 						{

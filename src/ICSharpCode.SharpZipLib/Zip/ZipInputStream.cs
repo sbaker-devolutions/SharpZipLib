@@ -351,7 +351,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 
 				if (authBytesRead < ZipConstants.AESAuthCodeLength)
 				{
-					throw new Exception("Internal error missed auth code"); // Coding bug
+					throw new ZipException("Internal error missed auth code"); // Coding bug
 																			// Final block done. Check Auth code.
 				}
 
@@ -360,7 +360,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 				{
 					if (calcAuthCode[i] != authBytes[i])
 					{
-						throw new Exception("AES Authentication Code does not match. This is a super-CRC check on the data in the file after compression and encryption. \r\n"
+						throw new ZipException("AES Authentication Code does not match. This is a super-CRC check on the data in the file after compression and encryption. \r\n"
 						 	+ "The file may be damaged or tampered.");
 					}
 				}
@@ -592,21 +592,27 @@ namespace ICSharpCode.SharpZipLib.Zip
 					int saltIn = inputBuffer.ReadRawBuffer(saltBytes, 0, saltLen);
 
 					if (saltIn != saltLen)
+					{
 						throw new ZipException("AES Salt expected " + saltLen + " got " + saltIn);
+					}
 					
 					//
 					byte[] pwdVerifyRead = new byte[ZipConstants.AESPasswordVerifyLength];
 					int pwdBytesRead = inputBuffer.ReadRawBuffer(pwdVerifyRead, 0, pwdVerifyRead.Length);
 
 					if (pwdBytesRead != pwdVerifyRead.Length)
+					{
 						throw new EndOfStreamException();
+					}
 
 					int blockSize = entry.AESKeySize / 8;   // bits to bytes
 
 					var decryptor = new ZipAESTransform(password, saltBytes, blockSize, false);
 					byte[] pwdVerifyCalc = decryptor.PwdVerifier;
 					if (pwdVerifyCalc[0] != pwdVerifyRead[0] || pwdVerifyCalc[1] != pwdVerifyRead[1])
+					{
 						throw new ZipException("Invalid password for AES");
+					}
 
 					// The AES data has saltLen+AESPasswordVerifyLength bytes as a header, and AESAuthCodeLength bytes
 					// as a footer.
@@ -756,6 +762,8 @@ namespace ICSharpCode.SharpZipLib.Zip
 						}
 					}
 					break;
+				default:
+					throw new InvalidOperationException("Internal Error: Unsupported compression method encountered.");
 			}
 
 			if (count > 0)
