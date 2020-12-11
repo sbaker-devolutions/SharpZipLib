@@ -15,7 +15,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			var sb = new StringBuilder();
 			for (int i = 0; i < 1000; i++)
 			{
-				sb.Append(Guid.NewGuid());
+				sb.AppendLine(Guid.NewGuid().ToString());
 			}
 
 			DummyDataString = sb.ToString();
@@ -126,17 +126,23 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		[Test]
 		[Category("Encryption")]
 		[Category("Zip")]
-		[TestCase(0, CompressionMethod.Deflated)]
-		[TestCase(0, CompressionMethod.Stored)]
-		[TestCase(128, CompressionMethod.Deflated)]
-		[TestCase(128, CompressionMethod.Stored)]
-		[TestCase(256, CompressionMethod.Deflated)]
-		[TestCase(256, CompressionMethod.Stored)]
-		public void ZipInputStreamDecryption(int aesKeySize, CompressionMethod compressionMethod)
+		[TestCase(0, CompressionMethod.Deflated, false)]
+		[TestCase(0, CompressionMethod.Stored, false)]
+		[TestCase(128, CompressionMethod.Deflated, false)]
+		[TestCase(128, CompressionMethod.Stored, false)]
+		[TestCase(256, CompressionMethod.Deflated, false)]
+		[TestCase(256, CompressionMethod.Stored, false)]
+		[TestCase(0, CompressionMethod.Deflated, true)]
+		[TestCase(0, CompressionMethod.Stored, true)]
+		[TestCase(128, CompressionMethod.Deflated, true)]
+		[TestCase(128, CompressionMethod.Stored, true)]
+		[TestCase(256, CompressionMethod.Deflated, true)]
+		[TestCase(256, CompressionMethod.Stored, true)]
+		public void ZipInputStreamDecryption(int aesKeySize, CompressionMethod compressionMethod, bool forceDataDescriptor)
 		{
 			var password = "password";
 
-			using (var ms = new MemoryStream())
+			using (var ms = forceDataDescriptor ? new NonSeekableMemoryStream() : new MemoryStream())
 			{
 				WriteEncryptedZipToStream(ms, 3, password, aesKeySize, compressionMethod);
 				ms.Seek(0, SeekOrigin.Begin);
@@ -541,6 +547,17 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			{
 				WriteEncryptedZipToStream(ms, password, keySize, compressionMethod);
 				SevenZipHelper.VerifyZipWith7Zip(ms, password);
+			}
+		}
+
+		private class NonSeekableMemoryStream : MemoryStream
+		{
+			public override bool CanSeek
+			{
+				get
+				{
+					return false;
+				}
 			}
 		}
 

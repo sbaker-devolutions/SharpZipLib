@@ -618,6 +618,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 					int blockSize = entry.AESKeySize / 8;   // bits to bytes
 
 					var decryptor = new ZipAESTransform(password, saltBytes, blockSize, false);
+					decryptor.ManualHmac = csize < 0;
 					byte[] pwdVerifyCalc = decryptor.PwdVerifier;
 					if (pwdVerifyCalc[0] != pwdVerifyRead[0] || pwdVerifyCalc[1] != pwdVerifyRead[1])
 					{

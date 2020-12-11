@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using ICSharpCode.SharpZipLib.Encryption;
 
 namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 {
@@ -92,7 +93,15 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 		public int Available
 		{
 			get { return available; }
-			set { available = value; }
+			set
+			{
+				if (cryptoTransform is ZipAESTransform ct)
+				{
+					ct.AppendFinal(value);
+				}
+				
+				available = value;
+			}
 		}
 
 		/// <summary>
@@ -121,6 +130,11 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 		/// </summary>
 		public void Fill()
 		{
+			if (cryptoTransform is ZipAESTransform ct)
+			{
+				ct.AppendAllPending();
+			}
+
 			rawLength = 0;
 			int toRead = rawData.Length;
 
@@ -313,6 +327,11 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 		{
 			int size = DecryptionLimit ?? availableBufferSize;
 			size = Math.Min(size, availableBufferSize);
+			if (size < 0)
+			{
+				size = availableBufferSize;
+			}
+			
 			if (DecryptionLimit.HasValue)
 			{
 				DecryptionLimit -= size;
