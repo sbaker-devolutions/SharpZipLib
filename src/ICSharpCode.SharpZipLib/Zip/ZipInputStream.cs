@@ -138,18 +138,22 @@ namespace ICSharpCode.SharpZipLib.Zip
 		/// <summary>
 		/// Is the compression method for the specified entry supported?
 		/// </summary>
-		/// <remarks>
-		/// Uses entry.CompressionMethodForHeader so that entries of type WinZipAES will be rejected. 
-		/// </remarks>
 		/// <param name="entry">the entry to check.</param>
 		/// <returns>true if the compression methiod is supported, false if not.</returns>
 		private static bool IsEntryCompressionMethodSupported(ZipEntry entry)
 		{
-			var entryCompressionMethod = entry.CompressionMethodForHeader;
+			var entryCompressionMethodForHeader = entry.CompressionMethodForHeader;
+			var entryCompressionMethod = entry.CompressionMethod;
 
-			return entryCompressionMethod == CompressionMethod.Deflated ||
-				   entryCompressionMethod == CompressionMethod.Stored ||
-				   entryCompressionMethod == CompressionMethod.WinZipAES;
+			var compressionMethodSupported = 
+				entryCompressionMethod == CompressionMethod.Deflated ||
+				entryCompressionMethod == CompressionMethod.Stored;
+			var entryCompressionMethodForHeaderSupported = 
+				entryCompressionMethodForHeader == CompressionMethod.Deflated ||
+				entryCompressionMethodForHeader == CompressionMethod.Stored ||
+				entryCompressionMethodForHeader == CompressionMethod.WinZipAES;
+
+			return compressionMethodSupported && entryCompressionMethodForHeaderSupported;
 		}
 
 		/// <summary>
