@@ -375,6 +375,12 @@ namespace ICSharpCode.SharpZipLib.Zip
 		/// <param name="testCrc">True if the crc value should be tested</param>
 		private void CompleteCloseEntry(bool testCrc)
 		{
+			// AE-2 does not have a CRC by specification. Do not check CRC in this case.
+			if (entry.AESKeySize != 0 && entry.AESVersion == 2)
+			{
+				testCrc = false;
+			}
+			
 			StopDecrypting();
 
 			if ((flags & 8) != 0)
