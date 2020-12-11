@@ -96,6 +96,14 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 		}
 
 		/// <summary>
+		/// A limitation how much data is decrypted. If null all the data in the input buffer will be decrypted.
+		/// Setting limit is important in case the HMAC has to be calculated for each zip entry. In this case
+		/// it is not possible to decrypt all available data in the input buffer. In this case only the data
+		/// belonging to the current zip entry must be decrypted so that the HMAC is correctly calculated. 
+		/// </summary>
+		internal int? DecryptionLimit { get; set; }
+
+		/// <summary>
 		/// Call <see cref="Inflater.SetInput(byte[], int, int)"/> passing the current clear text buffer contents.
 		/// </summary>
 		/// <param name="inflater">The inflater to set input for.</param>
@@ -303,17 +311,15 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 
 		private int CalculateDecryptionSize(int availableBufferSize)
 		{
-			int size = DecryptSize ?? availableBufferSize;
+			int size = DecryptionLimit ?? availableBufferSize;
 			size = Math.Min(size, availableBufferSize);
-			if (DecryptSize.HasValue)
+			if (DecryptionLimit.HasValue)
 			{
-				DecryptSize -= size;
+				DecryptionLimit -= size;
 			}
 
 			return size;
 		}
-
-		public int? DecryptSize { get; set; }
 
 		#region Instance Fields
 

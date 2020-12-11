@@ -611,7 +611,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 					// The AES data has saltLen+AESPasswordVerifyLength bytes as a header, and AESAuthCodeLength bytes
 					// as a footer.
 					csize -= (saltLen + ZipConstants.AESPasswordVerifyLength + ZipConstants.AESAuthCodeLength);
-					inputBuffer.DecryptSize = (int)csize;
+					inputBuffer.DecryptionLimit = (int)csize;
 					inputBuffer.CryptoTransform = decryptor;
 					this.cryptoTransform = decryptor;
 				}
