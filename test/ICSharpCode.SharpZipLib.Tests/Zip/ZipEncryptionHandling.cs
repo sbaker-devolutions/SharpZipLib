@@ -142,7 +142,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		{
 			var password = "password";
 
-			using (var ms = forceDataDescriptor ? new NonSeekableMemoryStream() : new MemoryStream())
+			using (var ms = forceDataDescriptor ? new MemoryStreamWithoutSeek() : new MemoryStream())
 			{
 				WriteEncryptedZipToStream(ms, 3, password, aesKeySize, compressionMethod);
 				ms.Seek(0, SeekOrigin.Begin);
@@ -547,17 +547,6 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			{
 				WriteEncryptedZipToStream(ms, password, keySize, compressionMethod);
 				SevenZipHelper.VerifyZipWith7Zip(ms, password);
-			}
-		}
-
-		private class NonSeekableMemoryStream : MemoryStream
-		{
-			public override bool CanSeek
-			{
-				get
-				{
-					return false;
-				}
 			}
 		}
 
