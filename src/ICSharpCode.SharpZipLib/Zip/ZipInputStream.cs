@@ -345,11 +345,11 @@ namespace ICSharpCode.SharpZipLib.Zip
 		/// <summary>
 		/// Complete any decryption processing and clear any cryptographic state.
 		/// </summary>
-		protected override void StopDecrypting()
+		private void StopDecrypting(bool testAESAuthCode)
 		{
-			base.StopDecrypting();
+			StopDecrypting();
 
-			if (entry.AESKeySize != 0)
+			if (testAESAuthCode && entry.AESKeySize != 0)
 			{
 				byte[] authBytes = new byte[ZipConstants.AESAuthCodeLength];
 				int authBytesRead = inputBuffer.ReadRawBuffer(authBytes, 0, authBytes.Length);
@@ -380,13 +380,13 @@ namespace ICSharpCode.SharpZipLib.Zip
 		/// <param name="testCrc">True if the crc value should be tested</param>
 		private void CompleteCloseEntry(bool testCrc)
 		{
+			StopDecrypting(testCrc);
+
 			// AE-2 does not have a CRC by specification. Do not check CRC in this case.
 			if (entry.AESKeySize != 0 && entry.AESVersion == 2)
 			{
 				testCrc = false;
 			}
-			
-			StopDecrypting();
 
 			if ((flags & 8) != 0)
 			{

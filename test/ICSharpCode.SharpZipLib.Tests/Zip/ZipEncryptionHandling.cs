@@ -165,7 +165,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 				}
 			}
 		}
-
+		
 		[Test]
 		[Category("Encryption")]
 		[Category("Zip")]
@@ -489,6 +489,48 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 				{
 					var content = sr.ReadToEnd();
 					Assert.That(content, Is.EqualTo("Lorem ipsum dolor sit amet, consectetur adipiscing elit."), "Decompressed content does not match expected data");
+				}
+			}
+		}
+		
+		// This is a zip file with three AES encrypted entry, whose password is password.
+		const string TestFileWithThreeEntries = @"UEsDBDMAAQBjAI9jbFIAAAAAIQAAAAUAAAAJAAsARmlsZTEudHh0AZkHAAIAQUUDAAAoyz4gbB4/SnNvoPSBMVS9Zhp5sKKD
+            GnLy8zwsuV0Jh/RQSwMEMwABAGMAnWNsUgAAAAAhAAAABQAAAAkACwBGaWxlMi50eHQBmQcAAgBBRQMAANoCDbQUG7iCJgGC2/5OrmUQUk/+fACL804W0bboF8YMM1BLAwQzAA
+            EAYwCjY2xSAAAAACEAAAAFAAAACQALAEZpbGUzLnR4dAGZBwACAEFFAwAAqmBqgBkl3tP6ND0uCD50mhwfOtbmwV1IKyUVK5wGVQUiUEsBAj8AMwABAGMAj2NsUgAAAAAhAAAA
+            BQAAAAkALwAAAAAAAAAgAAAAAAAAAEZpbGUxLnR4dAoAIAAAAAAAAQAYAApFb9MyF9cB7fEh1jIX1wHNrjnNMhfXAQGZBwACAEFFAwAAUEsBAj8AMwABAGMAnWNsUgAAAAAhAA
+            AABQAAAAkALwAAAAAAAAAgAAAAUwAAAEZpbGUyLnR4dAoAIAAAAAAAAQAYAK5pWOQyF9cBdTCL5TIX1wGab3HVMhfXAQGZBwACAEFFAwAAUEsBAj8AMwABAGMAo2NsUgAAAAAh
+            AAAABQAAAAkALwAAAAAAAAAgAAAApgAAAEZpbGUzLnR4dAoAIAAAAAAAAQAYANB1M+kyF9cB0gxl6jIX1wGqVSHWMhfXAQGZBwACAEFFAwAAUEsFBgAAAAADAAMAMgEAAPkAAAAAAA==";
+
+		/// <summary>
+		/// Test reading an AES encrypted entry whose password is an empty string.
+		/// </summary>
+		/// <remarks>
+		/// Test added for https://github.com/icsharpcode/SharpZipLib/issues/471.
+		/// </remarks>
+		[Test]
+		[Category("Zip")]
+		public void ZipFileAESReadSkippingEntriesIsPossible()
+		{
+			var fileBytes = Convert.FromBase64String(TestFileWithThreeEntries);
+
+			using (var ms = new MemoryStream(fileBytes))
+			using (var zis = new ZipInputStream(ms) { IsStreamOwner = false})
+			{
+				zis.Password = "password";
+
+				for (int i = 0; i < 3; i++)
+				{
+					var entry = zis.GetNextEntry();
+					if (i == 1)
+					{
+						continue;
+					}
+
+					using (var sr = new StreamReader(zis, Encoding.UTF8, leaveOpen: true, detectEncodingFromByteOrderMarks: true, bufferSize: 1024))
+					{
+						var content = sr.ReadToEnd();
+						Assert.AreEqual(Path.GetFileNameWithoutExtension(entry.Name), content, "Decompressed content does not match input data");
+					}
 				}
 			}
 		}
