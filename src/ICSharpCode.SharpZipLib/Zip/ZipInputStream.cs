@@ -430,6 +430,13 @@ namespace ICSharpCode.SharpZipLib.Zip
 			{
 				return;
 			}
+			
+			// In case of AES encryption we also need to read the 10 Bytes of the auth code.
+			// In case csize is equal to the entry.CompressedSize csize includes those 10 Bytes already.
+			if (entry.IsCrypted && entry.AESKeySize != 0 && entry.CompressedSize != csize) 
+			{
+				csize += ZipConstants.AESAuthCodeLength;
+			}			
 
 			if (entry.CompressionMethod == CompressionMethod.Deflated)
 			{
@@ -446,6 +453,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 				}
 
 				csize -= inf.TotalIn;
+				
 				inputBuffer.Available += inf.RemainingInput;
 			}
 
