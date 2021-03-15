@@ -583,6 +583,7 @@ namespace ICSharpCode.SharpZipLib.Zip
 					byte[] key = PkzipClassic.GenerateKeys(ZipStrings.ConvertToArray(password));
 
 					inputBuffer.CryptoTransform = managed.CreateDecryptor(key, null);
+					inputBuffer.DecryptionLimit = null;
 
 					byte[] cryptbuffer = new byte[ZipConstants.CryptoHeaderSize];
 					inputBuffer.ReadClearTextBuffer(cryptbuffer, 0, ZipConstants.CryptoHeaderSize);
@@ -634,7 +635,8 @@ namespace ICSharpCode.SharpZipLib.Zip
 					// The AES data has saltLen+AESPasswordVerifyLength bytes as a header, and AESAuthCodeLength bytes
 					// as a footer.
 					csize -= (saltLen + ZipConstants.AESPasswordVerifyLength + ZipConstants.AESAuthCodeLength);
-					inputBuffer.DecryptionLimit = (int)csize;
+					inputBuffer.DecryptionLimit = csize >= 0 ? (int?)csize : null;
+					
 					inputBuffer.CryptoTransform = decryptor;
 					this.cryptoTransform = decryptor;
 				}

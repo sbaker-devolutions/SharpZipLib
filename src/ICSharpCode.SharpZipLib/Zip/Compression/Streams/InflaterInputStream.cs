@@ -327,10 +327,6 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 		{
 			int size = DecryptionLimit ?? availableBufferSize;
 			size = Math.Min(size, availableBufferSize);
-			if (size < 0)
-			{
-				size = availableBufferSize;
-			}
 			
 			if (DecryptionLimit.HasValue)
 			{
@@ -501,6 +497,7 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 		protected virtual void StopDecrypting()
 		{
 			inputBuffer.CryptoTransform = null;
+			inputBuffer.DecryptionLimit = null;
 		}
 
 		/// <summary>
