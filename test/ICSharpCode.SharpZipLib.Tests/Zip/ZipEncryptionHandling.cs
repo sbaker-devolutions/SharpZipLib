@@ -123,49 +123,57 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		/// <summary>
 		/// Tests for reading encrypted entries using ZipInputStream.
 		/// </summary>
-		/// <param name="aesKeySize"></param>
 		[Test]
 		[Category("Encryption")]
 		[Category("Zip")]
-		[TestCase(0,   CompressionMethod.Deflated, false, false, false)]
-		[TestCase(0,   CompressionMethod.Stored,   false, false, false)]
-		[TestCase(128, CompressionMethod.Deflated, false, false, false)]
-		[TestCase(128, CompressionMethod.Stored,   false, false, false)]
-		[TestCase(256, CompressionMethod.Deflated, false, false, false)]
-		[TestCase(256, CompressionMethod.Stored,   false, false, false)]
-		[TestCase(0,   CompressionMethod.Deflated, true,  false, false)]
-		[TestCase(0,   CompressionMethod.Stored,   true,  false, false)]
-		[TestCase(128, CompressionMethod.Deflated, true,  false, false)]
-		[TestCase(128, CompressionMethod.Stored,   true,  false, false)]
-		[TestCase(256, CompressionMethod.Deflated, true,  false, false)]
-		[TestCase(256, CompressionMethod.Stored,   true,  false, false)]
+		public void ZipInputStreamDecryption(
+			[Values(0, 128, 256)] int aesKeySize,
+			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]
+			CompressionMethod compressionMethod,
+			[Values] bool forceDataDescriptor)
+		{
+			ZipInputStreamDecryption(aesKeySize, compressionMethod, forceDataDescriptor, false, false);
+		}
 		
-		[TestCase(0,   CompressionMethod.Deflated, false, true,  false)]
-		[TestCase(0,   CompressionMethod.Stored,   false, true,  false)]
-		[TestCase(128, CompressionMethod.Deflated, false, true,  false)]
-		[TestCase(128, CompressionMethod.Stored,   false, true,  false)]
-		[TestCase(256, CompressionMethod.Deflated, false, true,  false)]
-		[TestCase(256, CompressionMethod.Stored,   false, true,  false)]
-		[TestCase(0,   CompressionMethod.Deflated, true,  true,  false)]
-		[TestCase(0,   CompressionMethod.Stored,   true,  true,  false)]
-		[TestCase(128, CompressionMethod.Deflated, true,  true,  false)]
-		[TestCase(128, CompressionMethod.Stored,   true,  true,  false)]
-		[TestCase(256, CompressionMethod.Deflated, true,  true,  false)]
-		[TestCase(256, CompressionMethod.Stored,   true,  true,  false)]
+		/// <summary>
+		/// Tests for reading encrypted entries using ZipInputStream.
+		/// Verify that it is possible to skip reading of entries.
+		/// </summary>
+		[Test]
+		[Category("Encryption")]
+		[Category("Zip")]
+		public void ZipInputStreamDecryptionSupportsSkippingEntries(
+			[Values(0, 128, 256)] int aesKeySize,
+			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]
+			CompressionMethod compressionMethod,
+			[Values] bool forceDataDescriptor)
+		{
+			ZipInputStreamDecryption(aesKeySize, compressionMethod, forceDataDescriptor, true, false);
+		}		
 		
-		[TestCase(0,   CompressionMethod.Deflated, false, false, true)]
-		[TestCase(0,   CompressionMethod.Stored,   false, false, true)]
-		[TestCase(128, CompressionMethod.Deflated, false, false, true)]
-		[TestCase(128, CompressionMethod.Stored,   false, false, true)]
-		[TestCase(256, CompressionMethod.Deflated, false, false, true)]
-		[TestCase(256, CompressionMethod.Stored,   false, false, true)]
-		[TestCase(0,   CompressionMethod.Deflated, true,  false, true)]
-		[TestCase(0,   CompressionMethod.Stored,   true,  false, true)]
-		[TestCase(128, CompressionMethod.Deflated, true,  false, true)]
-		[TestCase(128, CompressionMethod.Stored,   true,  false, true)]
-		[TestCase(256, CompressionMethod.Deflated, true,  false, true)]
-		[TestCase(256, CompressionMethod.Stored,   true,  false, true)]		
-		public void ZipInputStreamDecryption(int aesKeySize, CompressionMethod compressionMethod, bool forceDataDescriptor, bool skipEntries, bool partiallyReadEntries)
+		
+		/// <summary>
+		/// Tests for reading encrypted entries using ZipInputStream.
+		/// Verify that it is possible to read entries only partially.
+		/// </summary>
+		[Test]
+		[Category("Encryption")]
+		[Category("Zip")]
+		public void ZipInputStreamDecryptionSupportsPartiallyReadingOfEntries(
+			[Values(0, 128, 256)] int aesKeySize,
+			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]
+			CompressionMethod compressionMethod,
+			[Values] bool forceDataDescriptor)
+		{
+			ZipInputStreamDecryption(aesKeySize, compressionMethod, forceDataDescriptor, false, true);
+		}			
+
+		private void ZipInputStreamDecryption(
+			[Values(0, 128, 256)]int aesKeySize, 
+			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]CompressionMethod compressionMethod, 
+			[Values]bool forceDataDescriptor, 
+			[Values]bool skipEntries, 
+			[Values]bool partiallyReadEntries)
 		{
 			var password = "password";
 
