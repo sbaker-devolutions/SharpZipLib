@@ -106,8 +106,8 @@ namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams
 
 		/// <summary>
 		/// A limitation how much data is decrypted. If null all the data in the input buffer will be decrypted.
-		/// Setting limit is important in case the HMAC has to be calculated for each zip entry. In this case
-		/// it is not possible to decrypt all available data in the input buffer. In this case only the data
+		/// Setting limit is important in case the HMAC has to be calculated for each zip entry. In that case
+		/// it is not possible to decrypt all available data in the input buffer, and only the data
 		/// belonging to the current zip entry must be decrypted so that the HMAC is correctly calculated. 
 		/// </summary>
 		internal int? DecryptionLimit { get; set; }
