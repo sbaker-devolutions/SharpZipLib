@@ -628,7 +628,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		/// </summary>
 		[Test]
 		[Category("Zip")]
-		public void ZipFileAESReadEntriesCanBeReadPartially()
+		public void ZipInputStreamAESReadEntriesCanBeReadPartially()
 		{
 			var fileBytes = Convert.FromBase64String(TestFileWithThreeEntries);
 
