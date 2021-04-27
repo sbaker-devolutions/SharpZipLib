@@ -132,9 +132,35 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			CompressionMethod compressionMethod,
 			[Values] bool forceDataDescriptor)
 		{
-			ZipInputStreamDecryption(aesKeySize, compressionMethod, forceDataDescriptor, false, false);
+			var password = "password";
+
+			using (var ms = forceDataDescriptor ? new MemoryStreamWithoutSeek() : new MemoryStream())
+			{
+				WriteEncryptedZipToStream(ms, 3, 3, password, aesKeySize, compressionMethod);
+				ms.Seek(0, SeekOrigin.Begin);
+
+				using (var zis = new ZipInputStream(ms))
+				{
+					zis.IsStreamOwner = false;
+					zis.Password = password;
+
+					for (int i = 0; i < 6; i++)
+					{
+						var entry = zis.GetNextEntry();
+						int fileNumber = int.Parse(entry.Name[5].ToString());
+
+						using (var sr = new StreamReader(zis, Encoding.UTF8, leaveOpen: true, detectEncodingFromByteOrderMarks: true, bufferSize: 1024))
+						{
+							var content = sr.ReadToEnd();
+
+							Assert.AreEqual(fileNumber < 3 ? DummyDataString : DummyDataStringShort, content,
+								"Decompressed content does not match input data");
+						}
+					}
+				}
+			}
 		}
-		
+
 		/// <summary>
 		/// Tests for reading encrypted entries using ZipInputStream.
 		/// Verify that it is possible to skip reading of entries.
@@ -147,33 +173,6 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]
 			CompressionMethod compressionMethod,
 			[Values] bool forceDataDescriptor)
-		{
-			ZipInputStreamDecryption(aesKeySize, compressionMethod, forceDataDescriptor, true, false);
-		}		
-		
-		
-		/// <summary>
-		/// Tests for reading encrypted entries using ZipInputStream.
-		/// Verify that it is possible to read entries only partially.
-		/// </summary>
-		[Test]
-		[Category("Encryption")]
-		[Category("Zip")]
-		public void ZipInputStreamDecryptionSupportsPartiallyReadingOfEntries(
-			[Values(0, 128, 256)] int aesKeySize,
-			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]
-			CompressionMethod compressionMethod,
-			[Values] bool forceDataDescriptor)
-		{
-			ZipInputStreamDecryption(aesKeySize, compressionMethod, forceDataDescriptor, false, true);
-		}			
-
-		private void ZipInputStreamDecryption(
-			[Values(0, 128, 256)]int aesKeySize, 
-			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]CompressionMethod compressionMethod, 
-			[Values]bool forceDataDescriptor, 
-			[Values]bool skipEntries, 
-			[Values]bool partiallyReadEntries)
 		{
 			var password = "password";
 
@@ -192,12 +191,55 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 						var entry = zis.GetNextEntry();
 						int fileNumber = int.Parse(entry.Name[5].ToString());
 
-						if (skipEntries && fileNumber % 2 == 1)
+						if (fileNumber % 2 == 1)
 						{
 							continue;
 						}
-						
-						if (partiallyReadEntries && fileNumber % 2 == 1)
+
+						using (var sr = new StreamReader(zis, Encoding.UTF8, leaveOpen: true,
+							detectEncodingFromByteOrderMarks: true, bufferSize: 1024))
+						{
+							var content = sr.ReadToEnd();
+
+							Assert.AreEqual(fileNumber < 3 ? DummyDataString : DummyDataStringShort, content,
+								"Decompressed content does not match input data");
+						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Tests for reading encrypted entries using ZipInputStream.
+		/// Verify that it is possible to read entries only partially.
+		/// </summary>
+		[Test]
+		[Category("Encryption")]
+		[Category("Zip")]
+		public void ZipInputStreamDecryptionSupportsPartiallyReadingOfEntries(
+			[Values(0, 128, 256)] int aesKeySize,
+			[Values(CompressionMethod.Stored, CompressionMethod.Deflated)]
+			CompressionMethod compressionMethod,
+			[Values] bool forceDataDescriptor)
+		{
+			var password = "password";
+
+			using (var ms = forceDataDescriptor ? new MemoryStreamWithoutSeek() : new MemoryStream())
+			{
+				WriteEncryptedZipToStream(ms, 3, 3, password, aesKeySize, compressionMethod);
+				ms.Seek(0, SeekOrigin.Begin);
+
+				using (var zis = new ZipInputStream(ms))
+				{
+					zis.IsStreamOwner = false;
+					zis.Password = password;
+
+					for (int i = 0; i < 6; i++)
+					{
+						var entry = zis.GetNextEntry();
+						int fileNumber = int.Parse(entry.Name[5].ToString());
+
+						if (fileNumber % 2 == 1)
 						{
 							zis.ReadByte();
 							continue;
@@ -212,8 +254,8 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 						}
 					}
 				}
-			}
-		}
+			}		
+		}			
 		
 		[Test]
 		[Category("Encryption")]
