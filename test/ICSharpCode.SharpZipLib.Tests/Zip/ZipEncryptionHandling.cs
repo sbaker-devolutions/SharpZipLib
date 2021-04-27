@@ -597,7 +597,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		/// </summary>
 		[Test]
 		[Category("Zip")]
-		public void ZipFileAESReadSkippingEntriesIsPossible()
+		public void ZipInputStreamAESReadSkippingEntriesIsPossible()
 		{
 			var fileBytes = Convert.FromBase64String(TestFileWithThreeEntries);
 
