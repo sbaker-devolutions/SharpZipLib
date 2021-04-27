@@ -357,16 +357,15 @@ namespace ICSharpCode.SharpZipLib.Zip
 				if (authBytesRead < ZipConstants.AESAuthCodeLength)
 				{
 					throw new ZipException("Internal error missed auth code"); // Coding bug
-																			// Final block done. Check Auth code.
 				}
 
+				// Final block done. Check Auth code.
 				byte[] calcAuthCode = this.cryptoTransform.GetAuthCode();
 				for (int i = 0; i < ZipConstants.AESAuthCodeLength; i++)
 				{
 					if (calcAuthCode[i] != authBytes[i])
 					{
-						throw new ZipException("AES Authentication Code does not match. This is a super-CRC check on the data in the file after compression and encryption. \r\n"
-						 	+ "The file may be damaged or tampered.");
+						throw new ZipException("AES Authentication Code does not match. This is a super-CRC check on the data in the file after compression and encryption. The file may be damaged or tampered.");
 					}
 				}
 
