@@ -13,7 +13,7 @@ namespace ICSharpCode.SharpZipLib.Tests.Zip
 		static ZipEncryptionHandling()
 		{
 			var sb = new StringBuilder();
-			for (int i = 0; i < 1000; i++)
+			for (int i = 0; i < 200; i++)
 			{
 				sb.AppendLine(Guid.NewGuid().ToString());
 			}
